@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-blue
+  labels:
+    app.kubernetes.io/name: demo
+    app.kubernetes.io/component: blue
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: demo
+      color: blue
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: demo
+        color: blue
+    spec:
+      containers:
+        - name: app
+          image: 025066243171.dkr.ecr.ap-southeast-1.amazonaws.com/demo-service:0.0.1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: DEPLOY_COLOR
+              value: blue
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop: [ALL]

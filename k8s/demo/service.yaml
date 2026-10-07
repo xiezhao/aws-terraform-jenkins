@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-active
+  labels:
+    app.kubernetes.io/name: demo
+  annotations:
+    phase: release
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: demo
+    color: blue
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

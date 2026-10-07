@@ -1,0 +1,26 @@
+apiVersion: eks.amazonaws.com/v1
+kind: IngressClassParams
+metadata:
+  name: demo-alb
+spec:
+  scheme: internet-facing
+  group:
+    name: demo-shared
+  subnets:
+    matchTags:
+      - key: kubernetes.io/role/elb
+        values: ["1"]
+  certificateARNs:
+    - arn:aws:acm:ap-southeast-1:025066243171:certificate/28763d49-398d-4467-a14e-053996d6f8ec
+  targetType: ip
+---
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: demo-alb
+spec:
+  controller: eks.amazonaws.com/alb
+  parameters:
+    apiGroup: eks.amazonaws.com
+    kind: IngressClassParams
+    name: demo-alb

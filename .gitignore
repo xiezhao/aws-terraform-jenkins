@@ -1,0 +1,10 @@
+.idea/
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/crash.log
+**/crash.*.log
+**/node_modules/
+**/jenkins-*.tgz
+**/mock-cli.mjs
+**/test-release.mjs

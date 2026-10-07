@@ -1,0 +1,47 @@
+controller:
+  numExecutors: 0
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  admin:
+    createSecret: true
+  jenkinsUrl: https://jenkins.xiezhao.me
+  additionalPlugins:
+    - lockable-resources
+  initializeOnce: true
+  ingress:
+    enabled: true
+    ingressClassName: demo-alb
+    hostName: jenkins.xiezhao.me
+    path: /
+    pathType: Prefix
+    annotations:
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+      alb.ingress.kubernetes.io/ssl-redirect: "443"
+      alb.ingress.kubernetes.io/healthcheck-path: /login
+    tls:
+      - hosts:
+          - jenkins.xiezhao.me
+
+agent:
+  enabled: true
+  namespace: jenkins
+  serviceAccount: jenkins-release
+  useDefaultServiceAccount: true
+  websocket: true
+
+serviceAccountAgent:
+  create: true
+  name: jenkins-release
+
+rbac:
+  create: true
+
+persistence:
+  enabled: true
+  storageClass: eks-auto-ebs
+  size: 8Gi
