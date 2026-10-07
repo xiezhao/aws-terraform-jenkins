@@ -6,6 +6,10 @@ chart_version=5.9.66
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 chart_path="${script_dir}/jenkins-${chart_version}.tgz"
 
+if [[ ! -f "${chart_path}" ]]; then
+  helm pull jenkins --repo https://charts.jenkins.io --version "${chart_version}" --destination "${script_dir}"
+fi
+
 kubectl --context "${EKS_CONTEXT}" apply -f "${script_dir}/storageclass.yaml"
 kubectl --context "${EKS_CONTEXT}" create namespace jenkins --dry-run=client -o yaml \
   | kubectl --context "${EKS_CONTEXT}" apply -f -
