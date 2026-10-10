@@ -1,0 +1,65 @@
+name: GCP OIDC file lab
+on:
+  workflow_dispatch:
+permissions: {}
+jobs:
+  read-bucket:
+    runs-on: ubuntu-latest
+    environment: gcp-oidc-lab
+    timeout-minutes: 10
+    permissions:
+      id-token: write
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT }}
+      PROJECT_NUMBER: ${{ vars.GCP_PROJECT_NUMBER }}
+      IAM_BUCKET: ${{ vars.GCP_IAM_BUCKET }}
+    steps:
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+      - name: Read through file-sourced federation
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          export TOKEN_FILE="$RUNNER_TEMP/oidc-token.txt"
+          export CRED_FILE="$RUNNER_TEMP/external-account.json"
+          export CLOUDSDK_CONFIG="$RUNNER_TEMP/gcloud-oidc-file-lab"
+          export WIF_PROVIDER="projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/oidc-file-lab/providers/github"
+          export OIDC_AUDIENCE="https://iam.googleapis.com/$WIF_PROVIDER"
+          trap 'rm -f "$TOKEN_FILE" "$CRED_FILE"; rm -rf "$CLOUDSDK_CONFIG"' EXIT
+          
+          # GitHub runner 专用环境变量：向 GitHub 请求短期 OIDC token，只写文件。
+          python3 - <<'PY'
+          import json, os, urllib.parse, urllib.request
+          url = os.environ["ACTIONS_ID_TOKEN_REQUEST_URL"]
+          separator = "&" if "?" in url else "?"
+          url += separator + urllib.parse.urlencode({"audience": os.environ["OIDC_AUDIENCE"]})
+          request = urllib.request.Request(url, headers={
+              "Authorization": "Bearer " + os.environ["ACTIONS_ID_TOKEN_REQUEST_TOKEN"]
+          })
+          with urllib.request.urlopen(request, timeout=30) as response:
+              token = json.load(response)["value"]
+          with open(os.environ["TOKEN_FILE"], "w") as output:
+              output.write(token)
+          PY
+          
+          # 生成 type=external_account 的配置；文件来源是刚取得的 GitHub token。
+          gcloud iam workload-identity-pools create-cred-config "$WIF_PROVIDER" \
+            --service-account="lab-oidc-reader@$PROJECT_ID.iam.gserviceaccount.com" \
+            --credential-source-file="$TOKEN_FILE" \
+            --subject-token-type=urn:ietf:params:oauth:token-type:jwt \
+            --output-file="$CRED_FILE"
+          
+          # 只展示结构标识，不打印 token 或完整凭据。
+          python3 - <<'PY'
+          import json, os
+          with open(os.environ["CRED_FILE"]) as source:
+              config = json.load(source)
+          assert config["type"] == "external_account"
+          print("type:", config["type"])
+          print("credential_source.file:", config["credential_source"]["file"])
+          PY
+          
+          # CLI 明确加载此配置；ADC 应用则通过环境变量读取同一配置。
+          export GOOGLE_APPLICATION_CREDENTIALS="$CRED_FILE"
+          gcloud auth login --cred-file="$CRED_FILE" --quiet
+          gcloud storage cat "gs://$IAM_BUCKET/example.txt" --project="$PROJECT_ID"
